@@ -45,7 +45,9 @@ public class DefaultBuildIncluder implements BuildIncluder {
 
     @Override
     public IncludedBuildState includeBuild(IncludedBuildSpec includedBuildSpec, GradleInternal gradle) {
-        return buildRegistry.addIncludedBuild(toBuildDefinition(includedBuildSpec, gradle));
+        IncludedBuildState build = buildRegistry.addIncludedBuild(toBuildDefinition(includedBuildSpec, gradle));
+        build.ensureProjectsLoaded();
+        return build;
     }
 
     @Override
