@@ -22,6 +22,7 @@ import org.gradle.integtests.tooling.fixture.ToolingApiSpecification
 import org.gradle.integtests.tooling.fixture.ToolingApiVersion
 import org.gradle.tooling.model.eclipse.EclipseClasspathEntry
 import org.gradle.tooling.model.eclipse.EclipseProject
+import org.gradle.tooling.model.eclipse.EclipseProjectDependency
 import org.gradle.util.GradleVersion
 
 @ToolingApiVersion('>=5.6')
@@ -147,5 +148,55 @@ class ToolingApiEclipseModelTestSourcesCrossVersionSpec extends ToolingApiSpecif
         projectC.projectDependencies.collect { it.path } as Set == [ 'd' ] as Set
         projectD.classpath.empty
         projectD.projectDependencies.empty
+    }
+
+    @TargetGradleVersion(">=7.4")
+    def "Project dependencies can have test attributes"() {
+        setup:
+        settingsFile << """
+            include 'a', 'b', 'c', 'd'
+        """
+        file("a/build.gradle") << """
+            plugins {
+                id 'java-library'
+            }
+
+            dependencies {
+                implementation project(":b")
+                testImplementation project(":c")
+                testImplementation testFixtures(project(":d"))
+            }
+        """
+        file("b/build.gradle") << """
+            plugins {
+                id 'java-library'
+            }
+        """
+        file("c/build.gradle") << """
+            plugins {
+                id 'java-library'
+            }
+        """
+        file("d/build.gradle") << """
+            plugins {
+                id 'java-library'
+                id 'java-test-fixtures'
+            }
+        """
+
+        when:
+        EclipseProject project = loadToolingModel(EclipseProject)
+        EclipseProject projectA = project.children[0]
+        EclipseProjectDependency depB = projectA.projectDependencies.find { it.path == 'b' }
+        EclipseProjectDependency depC = projectA.projectDependencies.find { it.path == 'c' }
+        EclipseProjectDependency depD = projectA.projectDependencies.find { it.path == 'd' }
+
+        then:
+        !depB.classpathAttributes.find { it.name == 'test' && it.value == 'true' }
+        !depB.classpathAttributes.find { it.name == 'without_test_code' && it.value == 'false' }
+        depC.classpathAttributes.find { it.name == 'test' && it.value == 'true' }
+        depC.classpathAttributes.find { it.name == 'without_test_code' && it.value == 'true' }
+        depD.classpathAttributes.find { it.name == 'test' && it.value == 'true' }
+        depD.classpathAttributes.find { it.name == 'without_test_code' && it.value == 'false' }
     }
 }

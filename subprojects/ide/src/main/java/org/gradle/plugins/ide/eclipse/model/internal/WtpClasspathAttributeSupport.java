@@ -138,7 +138,7 @@ public class WtpClasspathAttributeSupport {
         }
 
         @Override
-        public void visitProjectDependency(ResolvedArtifactResult artifact, boolean asJavaModule) {
+        public void visitProjectDependency(ResolvedArtifactResult artifact, boolean testDependency, boolean asJavaModule) {
 
         }
 

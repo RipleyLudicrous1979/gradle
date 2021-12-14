@@ -222,7 +222,7 @@ public class IdeDependencySet {
                 boolean testOnly = isTestConfiguration(configurations.get(artifact.getId()));
                 boolean asModule = isModule(testOnly, artifact.getFile());
                 if (componentIdentifier instanceof ProjectComponentIdentifier) {
-                    visitor.visitProjectDependency(artifact, asModule);
+                    visitor.visitProjectDependency(artifact, testOnly, asModule);
                 } else {
                     if (componentIdentifier instanceof ModuleComponentIdentifier) {
                         Set<ResolvedArtifactResult> sources = auxiliaryArtifacts.get(componentIdentifier, SourcesArtifact.class);

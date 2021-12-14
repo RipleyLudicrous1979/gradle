@@ -107,7 +107,7 @@ public class EclipseDependenciesCreator {
         }
 
         @Override
-        public void visitProjectDependency(ResolvedArtifactResult artifact, boolean asJavaModule) {
+        public void visitProjectDependency(ResolvedArtifactResult artifact, boolean testDependency, boolean asJavaModule) {
             ProjectComponentIdentifier componentIdentifier = (ProjectComponentIdentifier) artifact.getId().getComponentIdentifier();
             if (componentIdentifier.equals(currentProjectId)) {
                 return;
@@ -122,7 +122,7 @@ public class EclipseDependenciesCreator {
                 buildDependencies = ((ComponentArtifactMetadata) artifactId).getBuildDependencies();
             }
             // TODO: Add handling for Test-only dependencies once https://github.com/gradle/gradle/pull/9484 is merged
-            projects.add(projectDependencyBuilder.build(componentIdentifier, classpath.getFileReferenceFactory().fromFile(artifact.getFile()), buildDependencies, asJavaModule));
+            projects.add(projectDependencyBuilder.build(componentIdentifier, classpath.getFileReferenceFactory().fromFile(artifact.getFile()), buildDependencies, testDependency, asJavaModule));
         }
 
         @Override
