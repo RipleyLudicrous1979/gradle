@@ -23,6 +23,7 @@ import org.gradle.internal.build.BuildIncluder;
 import org.gradle.internal.build.BuildStateRegistry;
 import org.gradle.internal.build.IncludedBuildState;
 import org.gradle.internal.build.PublicBuildPath;
+import org.gradle.internal.buildtree.BuildInclusionCoordinator;
 import org.gradle.internal.reflect.Instantiator;
 
 import java.util.ArrayList;
@@ -33,25 +34,29 @@ import java.util.stream.Collectors;
 public class DefaultBuildIncluder implements BuildIncluder {
 
     private final BuildStateRegistry buildRegistry;
+    private final BuildInclusionCoordinator coordinator;
     private final PublicBuildPath publicBuildPath;
     private final Instantiator instantiator;
+    private final GradleInternal gradle;
     private final List<BuildDefinition> pluginBuildDefinitions = new ArrayList<>();
 
-    public DefaultBuildIncluder(BuildStateRegistry buildRegistry, PublicBuildPath publicBuildPath, Instantiator instantiator) {
+    public DefaultBuildIncluder(BuildStateRegistry buildRegistry, BuildInclusionCoordinator coordinator, PublicBuildPath publicBuildPath, Instantiator instantiator, GradleInternal gradle) {
         this.buildRegistry = buildRegistry;
+        this.coordinator = coordinator;
         this.publicBuildPath = publicBuildPath;
         this.instantiator = instantiator;
+        this.gradle = gradle;
     }
 
     @Override
-    public IncludedBuildState includeBuild(IncludedBuildSpec includedBuildSpec, GradleInternal gradle) {
+    public IncludedBuildState includeBuild(IncludedBuildSpec includedBuildSpec) {
         IncludedBuildState build = buildRegistry.addIncludedBuild(toBuildDefinition(includedBuildSpec, gradle));
-        build.prepareForInclusion();
+        coordinator.prepareForInclusion(build);
         return build;
     }
 
     @Override
-    public void registerPluginBuild(IncludedBuildSpec includedBuildSpec, GradleInternal gradle) {
+    public void registerPluginBuild(IncludedBuildSpec includedBuildSpec) {
         pluginBuildDefinitions.add(toBuildDefinition(includedBuildSpec, gradle));
     }
 
@@ -59,7 +64,7 @@ public class DefaultBuildIncluder implements BuildIncluder {
     public Collection<IncludedBuildState> includeRegisteredPluginBuilds() {
         return pluginBuildDefinitions.stream().map(buildDefinition -> {
             IncludedBuildState build = buildRegistry.addIncludedBuild(buildDefinition);
-            build.prepareForInclusion();
+            coordinator.prepareForInclusion(build);
             return build;
         }).collect(Collectors.toList());
     }

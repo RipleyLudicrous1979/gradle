@@ -33,8 +33,6 @@ public interface IncludedBuildState extends NestedBuildState, CompositeBuildPart
 
     boolean isPluginBuild();
 
-    void prepareForInclusion();
-
     Action<? super DependencySubstitutions> getRegisteredDependencySubstitutions();
 
     <T> T withState(Transformer<T, ? super GradleInternal> action);

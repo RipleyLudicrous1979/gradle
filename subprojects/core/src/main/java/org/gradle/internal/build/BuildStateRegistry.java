@@ -71,13 +71,6 @@ public interface BuildStateRegistry {
     void finalizeIncludedBuilds();
 
     /**
-     * Notification that the root build is about to be configured.
-     *
-     * This shouldn't be on this interface, as this is state for the root build that should be managed internally by the {@link RootBuildState} instance instead. This method is here to allow transition towards that structure.
-     */
-    void beforeConfigureRootBuild();
-
-    /**
      * Notification that the root build has just finished configuration.
      */
     void afterConfigureRootBuild();
@@ -107,6 +100,11 @@ public interface BuildStateRegistry {
      * Visits all registered builds, ordered by {@link BuildState#getIdentityPath()}
      */
     void visitBuilds(Consumer<? super BuildState> visitor);
+
+    /**
+     * Register dependency substitutions for the given build.
+     */
+    void registerSubstitutionsFor(IncludedBuildState build);
 
     /**
      * Register dependency substitutions for the root build itself. This way, the projects of the root build can be addressed by coordinates as the projects of all other builds.

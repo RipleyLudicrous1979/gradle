@@ -43,7 +43,6 @@ public class DefaultIncludedBuild extends AbstractCompositeParticipantBuildState
     private final boolean isImplicit;
     private final BuildState owner;
     private final IncludedBuildImpl model;
-    private boolean included;
 
     public DefaultIncludedBuild(
         BuildIdentifier buildIdentifier,
@@ -134,14 +133,6 @@ public class DefaultIncludedBuild extends AbstractCompositeParticipantBuildState
     @Override
     public Action<? super DependencySubstitutions> getRegisteredDependencySubstitutions() {
         return buildDefinition.getDependencySubstitutions();
-    }
-
-    @Override
-    public void prepareForInclusion() {
-        if (!included) {
-            included = true;
-            ensureProjectsLoaded();
-        }
     }
 
     @Override
