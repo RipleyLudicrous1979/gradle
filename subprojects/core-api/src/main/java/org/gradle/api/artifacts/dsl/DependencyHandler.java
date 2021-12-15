@@ -276,7 +276,7 @@ public interface DependencyHandler extends ExtensionAware {
      * @param dependencyNotation
      *
      * The dependency notation, in one of the notations described above.
-     * @return The dependency.
+     * @return The dependency, or null if dependencyNotation is a provider.
      */
     @Nullable
     Dependency add(String configurationName, Object dependencyNotation);
@@ -287,7 +287,7 @@ public interface DependencyHandler extends ExtensionAware {
      * @param configurationName The name of the configuration.
      * @param dependencyNotation The dependency notation, in one of the notations described above.
      * @param configureClosure The closure to use to configure the dependency.
-     * @return The dependency.
+     * @return The dependency, or null if dependencyNotation is a provider.
      */
     Dependency add(String configurationName, Object dependencyNotation, Closure configureClosure);
 
@@ -313,6 +313,29 @@ public interface DependencyHandler extends ExtensionAware {
      */
     @Incubating
     <T> void addProvider(String configurationName, Provider<T> dependencyNotation);
+
+    /**
+     * Adds a dependency provider to the given configuration, eventually configures the dependency using the given action.
+     *
+     * @param configurationName The name of the configuration.
+     * @param dependencyNotation The dependency provider notation, in one of the notations described above.
+     * @param configuration The action to use to configure the dependency.
+     *
+     * @since 7.4
+     */
+    @Incubating
+    <T, U extends ExternalModuleDependency> void addProviderConvertible(String configurationName, ProviderConvertible<T> dependencyNotation, Action<? super U> configuration);
+
+    /**
+     * Adds a dependency provider to the given configuration.
+     *
+     * @param configurationName The name of the configuration.
+     * @param dependencyNotation The dependency provider notation, in one of the notations described above.
+     *
+     * @since 7.4
+     */
+    @Incubating
+    <T> void addProviderConvertible(String configurationName, ProviderConvertible<T> dependencyNotation);
 
     /**
      * Creates a dependency without adding it to a configuration.

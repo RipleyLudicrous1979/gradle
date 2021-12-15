@@ -11,9 +11,11 @@ plugins {
     id("gradlebuild.platform")
 }
 
+description = "Provides a platform dependency to align all distribution versions"
+
 val antVersion = "1.10.11"
 val archunitVersion = "0.20.1"
-val asmVersion = "9.1"
+val asmVersion = "9.2"
 val awsS3Version = "1.11.948"
 val bouncycastleVersion = "1.68"
 val googleApiVersion = "1.25.0" // See usage before attempting to upgrade
@@ -21,7 +23,7 @@ val jacksonVersion = "2.12.1"
 val jaxbVersion = "3.0.0"
 val jettyVersion = "9.4.36.v20210114"
 val mavenVersion = "3.6.3"
-val nativePlatformVersion = "0.22-milestone-21"
+val nativePlatformVersion = "0.22-milestone-22"
 val slf4jVersion = "1.7.30"
 val sshdVersion = "2.0.0" // Upgrade requires changes in package names and tests fail on expectations (but work otherwise)
 val tomljVersion = "1.0.0"
@@ -101,6 +103,7 @@ dependencies {
         api(libs.jsr305)                { version { strictly("3.0.2") }}
         api(libs.julToSlf4j)            { version { strictly(slf4jVersion) }}
         api(libs.junit)                 { version { strictly("4.13.2") }}
+        api(libs.junit5JupiterApi)      { version { strictly("5.7.2") }}
         api(libs.junit5Vintage)         { version { strictly("5.7.2") }}
         api(libs.junitPlatform)         { version { strictly("1.7.2") }}
         api(libs.jzlib)                 { version { strictly("1.1.3") }}

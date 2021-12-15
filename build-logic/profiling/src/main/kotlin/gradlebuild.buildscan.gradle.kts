@@ -16,9 +16,15 @@
 
 import com.gradle.scan.plugin.BuildScanExtension
 import gradlebuild.basics.BuildEnvironment.isCiServer
+import gradlebuild.basics.BuildEnvironment.isCodeQl
 import gradlebuild.basics.BuildEnvironment.isGhActions
 import gradlebuild.basics.BuildEnvironment.isJenkins
 import gradlebuild.basics.BuildEnvironment.isTravis
+import gradlebuild.basics.buildConfigurationId
+import gradlebuild.basics.buildId
+import gradlebuild.basics.buildServerUrl
+import gradlebuild.basics.environmentVariable
+import gradlebuild.basics.isBuildCommitDistribution
 import gradlebuild.basics.kotlindsl.execAndGetStdout
 import gradlebuild.basics.tasks.ClasspathManifest
 import gradlebuild.basics.testDistributionEnabled
@@ -35,7 +41,6 @@ import org.gradle.internal.operations.OperationIdentifier
 import org.gradle.internal.operations.OperationProgressEvent
 import org.gradle.internal.operations.OperationStartEvent
 import org.gradle.internal.watch.vfs.BuildFinishedFileSystemWatchingBuildOperationType
-import org.gradle.kotlin.dsl.*
 import org.gradle.kotlin.dsl.support.serviceOf
 import org.gradle.launcher.exec.RunBuildBuildOperationType
 import java.net.InetAddress
@@ -69,7 +74,7 @@ if (isCiServer) {
     }
 }
 
-if (project.testDistributionEnabled()) {
+if (project.testDistributionEnabled) {
     buildScan?.tag("TEST_DISTRIBUTION")
 }
 
@@ -105,7 +110,10 @@ fun Task.isCompileCacheMiss() = isMonitoredCompileTask() && !isExpectedCompileCa
 
 fun isAsciidoctorCacheMiss() = isMonitoredAsciidoctorTask() && !isExpectedAsciidoctorCacheMiss()
 
-fun Task.isMonitoredCompileTask() = this is AbstractCompile || this is ClasspathManifest
+fun Task.isMonitoredCompileTask() = (this is AbstractCompile || this is ClasspathManifest) && !this.isKotlinJsIrLink()
+
+// https://youtrack.jetbrains.com/issue/KT-49915
+fun Task.isKotlinJsIrLink() = this.javaClass.simpleName.startsWith("KotlinJsIrLink")
 
 fun isMonitoredAsciidoctorTask() = false // No asciidoctor tasks are cacheable for now
 
@@ -128,14 +136,15 @@ fun isExpectedCompileCacheMiss() =
 // 2. Gradleception which re-builds Gradle with a new Gradle version
 // 3. buildScanPerformance test, which doesn't depend on compileAll
 // 4. buildScanPerformance test, which doesn't depend on compileAll
+// 5. BuildCommitDistribution may build a commit which is not built before
     isInBuild(
         "Check_CompileAllBuild",
         "Component_GradlePlugin_Performance_PerformanceLatestMaster",
         "Component_GradlePlugin_Performance_PerformanceLatestReleased",
         "Check_Gradleception"
-    )
+    ) || isBuildCommitDistribution
 
-fun isInBuild(vararg buildTypeIds: String) = System.getenv("BUILD_TYPE_ID")?.let { currentBuildTypeId ->
+fun isInBuild(vararg buildTypeIds: String) = buildConfigurationId.orNull?.let { currentBuildTypeId ->
     buildTypeIds.any { currentBuildTypeId.endsWith(it) }
 } ?: false
 
@@ -155,13 +164,13 @@ fun extractCheckstyleAndCodenarcData() {
         tasks.withType<Checkstyle>().configureEach {
             finalizedBy(extractCheckstyleBuildScanData)
             extractCheckstyleBuildScanData {
-                reports.xml.outputLocation.orNull?.let { xmlOutputs.from(it.asFile) }
+                xmlOutputs.from(reports.xml.outputLocation)
             }
         }
         tasks.withType<CodeNarc>().configureEach {
             finalizedBy(extractCodeNarcBuildScanData)
             extractCodeNarcBuildScanData {
-                reports.xml.outputLocation.orNull?.let { xmlOutputs.from(it.asFile) }
+                xmlOutputs.from(reports.xml.outputLocation)
             }
         }
     }
@@ -187,10 +196,15 @@ fun Project.extractCiData() {
             }
         }
     }
+    if (isCodeQl) {
+        buildScan {
+            tag("CODEQL")
+        }
+    }
 }
 
 fun BuildScanExtension.whenEnvIsSet(envName: String, action: BuildScanExtension.(envValue: String) -> Unit) {
-    val envValue: String? = System.getenv(envName)
+    val envValue: String? = environmentVariable(envName).orNull
     if (!envValue.isNullOrEmpty()) {
         action(envValue)
     }
@@ -232,8 +246,9 @@ open class FileSystemWatchingBuildOperationListener(private val buildOperationLi
 }
 
 fun Project.extractAllReportsFromCI() {
+    val teamCityServerUrl = buildServerUrl.orNull ?: return
     val capturedReportingTypes = listOf("html") // can add xml, text, junitXml if wanted
-    val basePath = "${System.getenv("BUILD_SERVER_URL")}/repository/download/${System.getenv("BUILD_TYPE_ID")}/${System.getenv("BUILD_ID")}:id/.teamcity/gradle-logs"
+    val basePath = "$teamCityServerUrl/repository/download/${buildConfigurationId.get()}/${buildId.get()}:id/.teamcity/gradle-logs"
 
     gradle.taskGraph.afterTask {
         if (state.failure != null && this is Reporting<*>) {

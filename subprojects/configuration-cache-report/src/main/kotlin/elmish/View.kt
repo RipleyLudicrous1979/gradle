@@ -26,6 +26,9 @@ import kotlinx.dom.appendText
 val empty = View.Empty
 
 
+val hr = ViewFactory("hr")
+
+
 val h1 = ViewFactory("h1")
 
 
@@ -57,6 +60,9 @@ val li = ViewFactory("li")
 
 
 val a = ViewFactory("a")
+
+
+val br = ViewFactory("br")
 
 
 fun <I> render(view: View<I>, into: Element, send: (I) -> Unit) {

@@ -18,6 +18,7 @@ import elmish.Component
 import elmish.View
 import elmish.a
 import elmish.attributes
+import elmish.br
 import elmish.code
 import elmish.div
 import elmish.empty
@@ -29,7 +30,6 @@ import elmish.span
 import elmish.tree.Tree
 import elmish.tree.TreeView
 import elmish.tree.viewSubTrees
-
 import kotlinx.browser.window
 
 
@@ -90,20 +90,18 @@ object ConfigurationCacheReportPage : Component<ConfigurationCacheReportPage.Mod
 
     data class Model(
         val cacheAction: String,
+        val requestedTasks: String,
         val documentationLink: String,
         val totalProblems: Int,
         val reportedProblems: Int,
         val messageTree: ProblemTreeModel,
         val locationTree: ProblemTreeModel,
-        val displayFilter: DisplayFilter = DisplayFilter.All,
-        val tab: Tab = Tab.ByMessage
+        val inputTree: ProblemTreeModel,
+        val tab: Tab = if (totalProblems == 0) Tab.Inputs else Tab.ByMessage
     )
 
-    enum class DisplayFilter {
-        All, Errors, Warnings
-    }
-
     enum class Tab(val text: String) {
+        Inputs("Build configuration inputs"),
         ByMessage("Problems grouped by message"),
         ByLocation("Problems grouped by location")
     }
@@ -114,9 +112,9 @@ object ConfigurationCacheReportPage : Component<ConfigurationCacheReportPage.Mod
 
         data class MessageTreeIntent(val delegate: ProblemTreeIntent) : Intent()
 
-        data class Copy(val text: String) : Intent()
+        data class InputTreeIntent(val delegate: ProblemTreeIntent) : Intent()
 
-        data class SetFilter(val displayFilter: DisplayFilter) : Intent()
+        data class Copy(val text: String) : Intent()
 
         data class SetTab(val tab: Tab) : Intent()
     }
@@ -128,13 +126,13 @@ object ConfigurationCacheReportPage : Component<ConfigurationCacheReportPage.Mod
         is Intent.MessageTreeIntent -> model.copy(
             messageTree = TreeView.step(intent.delegate, model.messageTree)
         )
+        is Intent.InputTreeIntent -> model.copy(
+            inputTree = TreeView.step(intent.delegate, model.inputTree)
+        )
         is Intent.Copy -> {
             window.navigator.clipboard.writeText(intent.text)
             model
         }
-        is Intent.SetFilter -> model.copy(
-            displayFilter = intent.displayFilter
-        )
         is Intent.SetTab -> model.copy(
             tab = intent.tab
         )
@@ -142,60 +140,99 @@ object ConfigurationCacheReportPage : Component<ConfigurationCacheReportPage.Mod
 
     override fun view(model: Model): View<Intent> = div(
         attributes { className("report-wrapper") },
+        viewHeader(model),
+        viewProblems(model)
+    )
+
+    private
+    fun viewHeader(model: Model): View<Intent> = div(
+        attributes { className("header") },
+        div(attributes { className("gradle-logo") }),
+        learnMore(model.documentationLink),
         div(
-            attributes { className("header") },
-            div(attributes { className("gradle-logo") }),
-            learnMore(model.documentationLink),
-            div(
-                attributes { className("title") },
-                h1(model.summary()),
-                div(
-                    attributes { className("filters") },
-                    div(
-                        span("View"),
-                        div(
-                            attributes { className("filters-group") },
-                            displayFilterButton(DisplayFilter.All, model.displayFilter),
-                            displayFilterButton(DisplayFilter.Errors, model.displayFilter),
-                            displayFilterButton(DisplayFilter.Warnings, model.displayFilter)
-                        )
-                    )
-                )
-            ),
-            div(
-                attributes { className("groups") },
-                displayTabButton(Tab.ByMessage, model.tab, model.messageTree.problemCount),
-                displayTabButton(Tab.ByLocation, model.tab, model.locationTree.problemCount)
-            )
+            attributes { className("title") },
+            displaySummary(model),
         ),
         div(
-            attributes { className("content") },
-            when (model.tab) {
-                Tab.ByMessage -> viewTree(model.messageTree, Intent::MessageTreeIntent, model.displayFilter)
-                Tab.ByLocation -> viewTree(model.locationTree, Intent::TaskTreeIntent, model.displayFilter)
-            }
+            attributes { className("groups") },
+            displayTabButton(Tab.Inputs, model.tab, model.inputTree.problemCount),
+            displayTabButton(Tab.ByMessage, model.tab, model.messageTree.problemCount),
+            displayTabButton(Tab.ByLocation, model.tab, model.locationTree.problemCount)
         )
     )
 
     private
-    fun Model.summary() =
-        "$totalProblems ${problemOrProblems()} found $cacheAction the configuration cache".let {
-            if (totalProblems > reportedProblems) "$it, only the first $reportedProblems were included in this report"
+    fun viewProblems(model: Model) = div(
+        attributes { className("content") },
+        when (model.tab) {
+            Tab.Inputs -> viewInputs(model.inputTree)
+            Tab.ByMessage -> viewTree(model.messageTree, Intent::MessageTreeIntent)
+            Tab.ByLocation -> viewTree(model.locationTree, Intent::TaskTreeIntent)
+        }
+    )
+
+    private
+    fun viewInputs(inputTree: ProblemTreeModel): View<Intent> =
+        div(
+            attributes { className("inputs") },
+            viewTree(inputTree.tree.focus().children, Intent::InputTreeIntent)
+        )
+
+    private
+    fun displaySummary(model: Model): View<Intent> {
+        return h1(
+            "${model.cacheAction.capitalize()} the configuration cache for ",
+            code(model.requestedTasks),
+            br(),
+            small(model.inputsSummary()),
+            br(),
+            small(model.problemsSummary()),
+        )
+    }
+
+    private
+    fun Model.inputsSummary() =
+        found(inputTree.problemCount, "build configuration input").let {
+            if (inputTree.problemCount > 0) "$it and will cause the cache to be discarded when ${itsOrTheir(inputTree.problemCount)} value change"
             else it
         }
 
     private
-    fun Model.problemOrProblems() =
-        if (totalProblems == 1) "problem was" else "problems were"
+    fun Model.problemsSummary() =
+        found(totalProblems, "problem").let {
+            if (totalProblems > reportedProblems) "$it, only the first $reportedProblems ${wasOrWere(reportedProblems)} included in this report"
+            else it
+        }
+
+    private
+    fun found(count: Int, what: String) =
+        "${count.toStringOrNo()} ${what.sIfPlural(count)} ${wasOrWere(count)} found"
+
+    private
+    fun Int.toStringOrNo() =
+        if (this != 0) toString()
+        else "No"
+
+    private
+    fun String.sIfPlural(count: Int) =
+        if (count < 2) this else "${this}s"
+
+    private
+    fun wasOrWere(count: Int) =
+        if (count <= 1) "was" else "were"
+
+    private
+    fun itsOrTheir(count: Int) =
+        if (count <= 1) "its" else "their"
 
     private
     fun displayTabButton(tab: Tab, activeTab: Tab, problemsCount: Int): View<Intent> = div(
         attributes {
             className("group-selector")
-            if (tab == activeTab) {
-                className("group-selector--active")
-            } else {
-                onClick { Intent.SetTab(tab) }
+            when {
+                problemsCount == 0 -> className("group-selector--disabled")
+                tab == activeTab -> className("group-selector--active")
+                else -> onClick { Intent.SetTab(tab) }
             }
         },
         span(
@@ -205,18 +242,6 @@ object ConfigurationCacheReportPage : Component<ConfigurationCacheReportPage.Mod
                 "$problemsCount"
             )
         )
-    )
-
-    private
-    fun displayFilterButton(displayFilter: DisplayFilter, activeFilter: DisplayFilter): View<Intent> = span(
-        attributes {
-            className("btn")
-            if (displayFilter == activeFilter) {
-                className("btn-active")
-            }
-            onClick { Intent.SetFilter(displayFilter) }
-        },
-        displayFilter.name
     )
 
     private
@@ -231,9 +256,16 @@ object ConfigurationCacheReportPage : Component<ConfigurationCacheReportPage.Mod
     )
 
     private
-    fun viewTree(model: ProblemTreeModel, treeIntent: (ProblemTreeIntent) -> Intent, displayFilter: DisplayFilter): View<Intent> = div(
+    fun viewTree(model: ProblemTreeModel, treeIntent: (ProblemTreeIntent) -> Intent): View<Intent> =
+        viewTree(model.tree.focus().children, treeIntent)
+
+    private
+    fun viewTree(
+        subTrees: Sequence<Tree.Focus<ProblemNode>>,
+        treeIntent: (ProblemTreeIntent) -> Intent
+    ): View<Intent> = div(
         ol(
-            viewSubTrees(applyFilter(displayFilter, model)) { child ->
+            viewSubTrees(subTrees) { child ->
                 when (val node = child.tree.label) {
                     is ProblemNode.Error -> {
                         viewLabel(treeIntent, child, node.label, node.docLink, errorIcon)
@@ -251,16 +283,6 @@ object ConfigurationCacheReportPage : Component<ConfigurationCacheReportPage.Mod
             }
         )
     )
-
-    private
-    fun applyFilter(displayFilter: DisplayFilter, model: ProblemTreeModel): Sequence<Tree.Focus<ProblemNode>> {
-        val children = model.tree.focus().children
-        return when (displayFilter) {
-            DisplayFilter.All -> children
-            DisplayFilter.Errors -> children.filter { it.tree.label is ProblemNode.Error }
-            DisplayFilter.Warnings -> children.filter { it.tree.label is ProblemNode.Warning }
-        }
-    }
 
     private
     fun viewNode(node: ProblemNode): View<Intent> = when (node) {
@@ -423,4 +445,8 @@ object ConfigurationCacheReportPage : Component<ConfigurationCacheReportPage.Mod
         Tree.ViewState.Collapsed -> "expand"
         Tree.ViewState.Expanded -> "collapse"
     }
+
+    private
+    fun String.capitalize() =
+        replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 }
