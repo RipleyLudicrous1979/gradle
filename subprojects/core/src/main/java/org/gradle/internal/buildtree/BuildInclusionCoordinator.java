@@ -39,14 +39,14 @@ public class BuildInclusionCoordinator {
         this.buildStateRegistry = buildStateRegistry;
     }
 
-    public void prepareForInclusion(IncludedBuildState build) {
+    public void prepareForInclusion(IncludedBuildState build, boolean asPlugin) {
         if (loadedBuilds.add(build)) {
             // Load projects (eg by running the settings script, etc) only the first time the build is included by another build.
             // This is to deal with cycles and the build being included multiple times in the tree
             build.ensureProjectsLoaded();
-            if (!build.isPluginBuild()) {
-                libraryBuilds.add(build);
-            }
+        }
+        if (!asPlugin && !libraryBuilds.contains(build)) {
+            libraryBuilds.add(build);
         }
     }
 

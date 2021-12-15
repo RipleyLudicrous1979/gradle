@@ -50,8 +50,9 @@ public class DefaultBuildIncluder implements BuildIncluder {
 
     @Override
     public IncludedBuildState includeBuild(IncludedBuildSpec includedBuildSpec) {
-        IncludedBuildState build = buildRegistry.addIncludedBuild(toBuildDefinition(includedBuildSpec, gradle));
-        coordinator.prepareForInclusion(build);
+        BuildDefinition buildDefinition = toBuildDefinition(includedBuildSpec, gradle);
+        IncludedBuildState build = buildRegistry.addIncludedBuild(buildDefinition);
+        coordinator.prepareForInclusion(build, buildDefinition.isPluginBuild());
         return build;
     }
 
@@ -64,7 +65,7 @@ public class DefaultBuildIncluder implements BuildIncluder {
     public Collection<IncludedBuildState> includeRegisteredPluginBuilds() {
         return pluginBuildDefinitions.stream().map(buildDefinition -> {
             IncludedBuildState build = buildRegistry.addIncludedBuild(buildDefinition);
-            coordinator.prepareForInclusion(build);
+            coordinator.prepareForInclusion(build, true);
             return build;
         }).collect(Collectors.toList());
     }
